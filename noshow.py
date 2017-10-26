@@ -5,36 +5,32 @@ Created on Wed Oct 25 23:53:11 2017
 
 @author: kathleenzhu
 """
-import os
+#import modules
+#import os
+#os.chdir('/Users/kathleenzhu/Documents/GitHub/MedicalNoshow')
 import pandas as pd
 import numpy as np 
 import matplotlib.pyplot as plt 
-pd.options.mode.chained_assignment = None  # default='warn'
-os.chdir('/Users/kathleenzhu/Documents/GitHub/MedicalNoshow')
+from patsy import dmatrices
+import seaborn as sns #for correlation matrix
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+pd.options.mode.chained_assignment = None  # default='warn', so we don't get chaining warning
+
+#read data
 data = pd.read_csv('No-show-Issue-Comma-300k.csv')
 data.columns
 
-#set datetime objects; categorical data; specify factors and bools
+#set datetime objects; categorical data; specify factors; correct spelling
 data['AppointmentRegistration'] = data['AppointmentRegistration'].astype('datetime64[ns]')
 data['AppointmentDate'] = data['ApointmentData'].astype('datetime64[ns]')
 data['Gender'] = data['Gender'].astype('category') 
 data['DayOfTheWeek'] = data['DayOfTheWeek'].astype('category')
 data['DayOfTheWeek'] = pd.Categorical(data['DayOfTheWeek'], ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
                     ordered=True)
-#data['Status'] = data['Status'].astype('bool')
-#data['Diabetes'] = data['Diabetes'].astype('bool')
-#data['Alchoholism'] = data['Alcoolism'].astype('bool')
-#data['Hypertension'] = data['HiperTension'].astype('bool')
-#data['Handicap'] = data['Handcap'].astype('bool')
-#data['Smokes'] = data['Smokes'].astype('bool')
-#data['Scholarship'] = data['Scholarship'].astype('bool')
-#data['Tuberculosis'] = data['Tuberculosis'].astype('bool')
-#data['Sms_Reminder'] = data['Sms_Reminder'].astype('bool')
-
-
-data['Alcoholism'] = data['Alcoolism']
-data['Hypertension'] = data['HiperTension']
-data['Handicap'] = data['Handcap']
+data['Alcoholism'] = data['Alcoolism'] 
+data['Hypertension'] = data['HiperTension'] 
+data['Handicap'] = data['Handcap'] 
 
 data = data[['Status','AppointmentRegistration','AppointmentDate','AwaitingTime',
              'DayOfTheWeek','Age','Gender','Diabetes','Alcoholism','Hypertension',
@@ -44,7 +40,11 @@ data.head()
 data.info()
 data.describe()
 
-#clean data
+#==============================================================================
+#
+# clean data
+#
+#==============================================================================
     #take out duplicate rows
 data_nodup = data.drop_duplicates()
 data.shape[0]-data_nodup.shape[0] #drop 343 rows
@@ -60,7 +60,7 @@ data = data[data['Age']>= 0]
 
 #awaiting time, difference between time appointment was made, and time of actual appointment 
 #change to be positive values, because it's a count of the number of days between, easier to handle
-data['AwaitingTime'] = data['AwaitingTime']*-1 
+data['WaitTime'] = data['AwaitingTime']*-1 
 
 
 #track date of appointment 
@@ -93,41 +93,91 @@ data.describe()
 #percent no-shows
 data['NoShow'].value_counts()/len(data['NoShow'])
 
-#visualize data
-    #plot proportion of no-shows by appointment date
-bydate = data.groupby('ApptDate')['NoShow'].mean().reset_index() #mean is the proportion of No Shows 
-plt.plot_date(bydate['ApptDate'],bydate['NoShow'])  
-    #plot proportion of no-shows by registration date
-bydate2 = data.groupby('RegDate')['NoShow'].mean().reset_index()
-plt.plot_date(bydate2['RegDate'],bydate2['NoShow'])
-    
-    #Day of the Week
-byDOTW = data.groupby('DayOfTheWeek')['NoShow'].count().reset_index()
-byDOTW = byDOTW.sort_values('DayOfTheWeek')
-y_pos = np.arange(len(byDOTW['NoShow']))
-plt.bar(y_pos, byDOTW['NoShow'])
+#==============================================================================
+#
+# visualize data
+#
+#==============================================================================
 
-    #Month
-byMonth = data.groupby('ApptMonth')['NoShow'].count().reset_index()
-byMonth = byMonth.sort_values('ApptMonth')
-y_pos = np.arange(len(byMonth['NoShow']))
-plt.scatter(y_pos, byMonth['NoShow'])
-
-
-    #Gender
-byGender = data.groupby('Gender')['NoShow'].count().reset_index()
-#make boxplots
-
-    #Age
-plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'])
-
-#Binary Flags
+#Binary Indicators - look at correlation matrix for the varibles
     #diabetes
     #alcoholism
     #hypertension
     #smokes
     #scholarship
     #tuberculosis
-    
-#basic model: logistic regression
+binaries = data[['NoShow','Diabetes','Alcoholism','Hypertension',
+             'Handicap','Smokes','Scholarship','Tuberculosis','Sms_Reminder']]
+
+f, ax = plt.subplots(figsize=(10, 8))
+corr = binaries.corr()
+sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_palette(220, 10, as_cmap=True),
+            square=True, ax=ax)
+
+    #plot proportion of no-shows by appointment date
+bydate = data.groupby('ApptDate')['NoShow'].mean().reset_index() #mean is the proportion of No Shows 
+plt.plot_date(bydate['ApptDate'],bydate['NoShow'])  
+    #plot proportion of no-shows by registration date
+bydate2 = data.groupby('RegDate')['NoShow'].mean().reset_index()
+plt.plot_date(bydate2['RegDate'],bydate2['NoShow'])
+#doesn't seem to have a trend over time
+  
+    #plot proportion of no-shows by wait time
+bywait = data.groupby('WaitTime')['NoShow'].mean().reset_index() #mean is the proportion of No Shows 
+plt.scatter(bywait['WaitTime'],bywait['NoShow'])  
+#longer wait times seems to be associated with higher proportions of NoShows 
+
+    #Day of the Week - count
+byDOTW = data.groupby('DayOfTheWeek')['NoShow'].count().reset_index()
+byDOTW = byDOTW.sort_values('DayOfTheWeek')
+y_pos = np.arange(len(byDOTW['NoShow']))
+plt.bar(y_pos, byDOTW['NoShow'])
+plt.xticks(y_pos, ['Mon','Tues','Wed','Thurs','Fri','Sat','Sun'])
+#basically no appointments on Sat, Sun, take a look at weekdays
+
+    #Day of the Week - Weekday Proportion
+byDOTW = data.groupby('DayOfTheWeek')['NoShow'].mean().reset_index()
+byDOTW = byDOTW.sort_values('DayOfTheWeek')
+y_pos = np.arange(5)
+plt.bar(y_pos, byDOTW['NoShow'][:5])
+plt.xticks(y_pos, ['Mon','Tues','Wed','Thurs','Fri'])
+
+    #Month
+byMonth = data.groupby('ApptMonth')['NoShow'].count().reset_index()
+byMonth = byMonth.sort_values('ApptMonth')
+y_pos = np.arange(len(byMonth['NoShow']))
+plt.bar(y_pos+1, byMonth['NoShow'])
+
+    #Gender
+byGender = data.groupby('Gender')['NoShow','Status'].mean().reset_index()
+plt.bar(range(2), byGender['NoShow'], color = 'r')
+plt.bar(range(2), byGender['Status'], color = 'b', bottom = byGender['NoShow'])
+plt.xticks(range(2), ['Female','Male'])
+
+    #Age
+plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'])
+
+#==============================================================================
+#
+# create training and development sets 
+#
+#==============================================================================
+#predictors: wait time, age, day of the week, month, scholarship, hypertension, smoke
+data.columns
+y, X = dmatrices('NoShow ~ WaitTime + Age + DayOfTheWeek +\
+                  ApptMonth + Scholarship + Hypertension + Smokes',
+                  data, return_type="dataframe")
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+
+#==============================================================================
+#
+# basic model: logistic regression
+#
+#==============================================================================
+#format data
+model = LogisticRegression(fit_intercept = False, C = 1e9) 
+#we choose a large tuning parameter, C, so we don't consider any regularization in our baseline 
+model.fit(X_train, y_train)
+model.coef_
 
