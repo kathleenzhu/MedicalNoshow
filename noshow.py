@@ -32,12 +32,12 @@ data['DayOfTheWeek'] = pd.Categorical(data['DayOfTheWeek'], ['Monday','Tuesday',
 #data['Sms_Reminder'] = data['Sms_Reminder'].astype('bool')
 
 
-data['Alchoholism'] = data['Alcoolism']
+data['Alcoholism'] = data['Alcoolism']
 data['Hypertension'] = data['HiperTension']
 data['Handicap'] = data['Handcap']
 
 data = data[['Status','AppointmentRegistration','AppointmentDate','AwaitingTime',
-             'DayOfTheWeek','Age','Gender','Diabetes','Alchoholism','Hypertension',
+             'DayOfTheWeek','Age','Gender','Diabetes','Alcoholism','Hypertension',
              'Handicap','Smokes','Scholarship','Tuberculosis','Sms_Reminder']]
 data.columns
 data.head()
@@ -116,12 +116,18 @@ plt.scatter(y_pos, byMonth['NoShow'])
 
     #Gender
 byGender = data.groupby('Gender')['NoShow'].count().reset_index()
-
+#make boxplots
 
     #Age
 plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'])
 
 #Binary Flags
-
+    #diabetes
+    #alcoholism
+    #hypertension
+    #smokes
+    #scholarship
+    #tuberculosis
+    
 #basic model: logistic regression
 
