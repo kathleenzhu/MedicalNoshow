@@ -15,6 +15,7 @@ from patsy import dmatrices
 import seaborn as sns #for correlation matrix
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn import metrics
 pd.options.mode.chained_assignment = None  # default='warn', so we don't get chaining warning
 
 #read data
@@ -153,10 +154,13 @@ byGender = data.groupby('Gender')['NoShow','Status'].mean().reset_index()
 plt.bar(range(2), byGender['NoShow'], color = 'r')
 plt.bar(range(2), byGender['Status'], color = 'b', bottom = byGender['NoShow'])
 plt.xticks(range(2), ['Female','Male'])
+plt.ylabel('Proportion No-Show')
+
 
     #Age
-plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'])
-
+plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'],label=['Show','NoShow'])
+plt.xlabel('Age')
+plt.ylabel('Number of Appointments')
 #==============================================================================
 #
 # create training and development sets 
@@ -181,3 +185,7 @@ model = LogisticRegression(fit_intercept = False, C = 1e9)
 model.fit(X_train, y_train)
 model.coef_
 
+#predicted values
+predicted = model.predict(X_test)
+#evaluation, accuracy
+metrics.accuracy_score(y_test, predicted)
