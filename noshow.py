@@ -13,9 +13,13 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from patsy import dmatrices
 import seaborn as sns #for correlation matrix
+from sklearn import linear_model
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
+
 pd.options.mode.chained_assignment = None  # default='warn', so we don't get chaining warning
 
 #read data
@@ -99,12 +103,13 @@ data.describe()
 #percent no-shows
 data['NoShow'].value_counts()/len(data['NoShow'])
 
-#MERGE DATA
+#MERGE DATA and drop redundant columns
 data['merge']=data['ApptDate'].astype(str)
 data = data.merge(weather, how = 'left', left_on = 'merge', right_on = 0)
 data = data.rename(columns = {1:'Temp',2:'Precip'})
-data.columns
-data2 = data.drop(['merge',0], axis = 1)
+data = data.drop(['Status','AppointmentRegistration','AppointmentDate', 'AwaitingTime',
+                   'merge',0], axis = 1)
+
 #==============================================================================
 #
 # visualize data
@@ -188,9 +193,29 @@ plt.legend()
 plt.xlabel('Age')
 plt.ylabel('Number of Appointments')
 
-    #Temperature
+    #Temperature        
+byTemp = data.groupby('Temp')['NoShow'].mean().reset_index()
+plt.scatter(byTemp['Temp'],byTemp['NoShow'])  
+plt.xlabel('Temperature')
+plt.ylabel('Proportion No-Show')
 
     #Precipitation 
+byPercip = data.groupby('Precip')['NoShow'].mean().reset_index()
+byPercip = byPercip.iloc[0:25,:] #drop an outlier
+plt.scatter(byPercip['Precip'],byPercip['NoShow'])   
+plt.xlabel('Precipitation')
+plt.ylabel('Proportion No-Show')
+
+
+#==============================================================================
+#
+# CHANGE ENCODING FROM 0,1 TO -1,1 
+#
+#==============================================================================
+binaries = data[['NoShow','Gender','Diabetes','Alcoholism','Hypertension',
+             'Handicap','Smokes','Scholarship','Tuberculosis','Sms_Reminder']]
+for i in binaries:
+    data[i][data[i] == 0] = -1
     
 #==============================================================================
 #
@@ -200,28 +225,99 @@ plt.ylabel('Number of Appointments')
 #predictors: wait time, age, day of the week, month, scholarship, hypertension, smoke
 data.columns
 y, X = dmatrices('NoShow ~ WaitTime + Age + DayOfTheWeek +\
-                  ApptMonth + Scholarship + Hypertension + Smokes',
+                  ApptMonth + Scholarship + Hypertension + Precip',
                   data, return_type="dataframe")
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
 
 #==============================================================================
 #
-# basic model: logistic regression
+# basic model: least squares regression
+#
+#==============================================================================
+
+lsregr = linear_model.LinearRegression()
+lsregr.fit(X_train,y_train)
+predicted = lsregr.predict(X_test)
+predicted[predicted >= 0] = 1
+predicted[predicted < 0] = -1
+metrics.accuracy_score(y_test, predicted)
+
+#==============================================================================
+#
+# basic model: ridge regression
+#
+#==============================================================================
+
+ridge = linear_model.Ridge()
+ridge.fit(X_train,y_train)
+predicted = ridge.predict(X_test)
+predicted[predicted >= 0] = 1
+predicted[predicted < 0] = -1
+metrics.accuracy_score(y_test, predicted)
+
+#==============================================================================
+#
+# hinge regression
+#
+#==============================================================================
+hinge = linear_model.SGDClassifier(loss = 'hinge',penalty = 'l2', alpha = 0.01,max_iter=5, tol=None) 
+hinge.fit(X_train, y_train)
+hinge.coef_
+predicted = hinge.predict(X_test)
+metrics.accuracy_score(y_test, predicted)
+
+#==============================================================================
+#
+# logistic regression
 #
 #==============================================================================
 #format data
-model = LogisticRegression(fit_intercept = False, C = 1e9) 
+logistic = LogisticRegression(fit_intercept = False, C = 2) 
 #we choose a large tuning parameter, C, so we don't consider any regularization in our baseline 
-model.fit(X_train, y_train)
-model.coef_
+logistic.fit(X_train, y_train)
+logistic.coef_
 
 #predicted values
-predicted = model.predict(X_test)
+predicted = logistic.predict(X_test)
 
 #evaluation, accuracy
 metrics.accuracy_score(y_test, predicted)
 
 
+#==============================================================================
+#
+# decision trees
+#
+#==============================================================================
+clf_gini = DecisionTreeClassifier(criterion = "gini", random_state = 100,
+                               max_depth=5, min_samples_leaf=2)
+clf_gini.fit(X_train, y_train)
+y_pred = clf_gini.predict(X_test)
+y_pred
+metrics.accuracy_score(y_test,y_pred)*100
 
 
+
+clf_entropy = DecisionTreeClassifier(criterion = "entropy", random_state = 100,
+                                     max_depth=5, min_samples_leaf=2)
+clf_entropy.fit(X_train, y_train)
+y_pred = clf_entropy.predict(X_test)
+y_pred
+metrics.accuracy_score(y_test,y_pred)*100
+
+
+clf = RandomForestClassifier()
+clf.fit(X_train, y_train)
+predicted = clf.predict(X_test)
+metrics.accuracy_score(y_test, predicted)
+
+
+
+
+
+
+
+
+clf = RandomForestClassifier(n_jobs=2, random_state=0)
+clf.fit(train[features], y)
