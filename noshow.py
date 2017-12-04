@@ -21,6 +21,7 @@ pd.options.mode.chained_assignment = None  # default='warn', so we don't get cha
 #read data
 data = pd.read_csv('No-show-Issue-Comma-300k.csv')
 data.columns
+weather = pd.read_csv('wunder-data.txt', header = None)
 
 #set datetime objects; categorical data; specify factors; correct spelling
 data['AppointmentRegistration'] = data['AppointmentRegistration'].astype('datetime64[ns]')
@@ -93,6 +94,9 @@ data.describe()
 
 #percent no-shows
 data['NoShow'].value_counts()/len(data['NoShow'])
+
+data2 = data.merge(weather, how = 'left', left_on = 'ApptDate', right_on = 0)
+weather
 
 #==============================================================================
 #
@@ -187,5 +191,14 @@ model.coef_
 
 #predicted values
 predicted = model.predict(X_test)
+
 #evaluation, accuracy
 metrics.accuracy_score(y_test, predicted)
+
+
+
+
+
+
+
+min(data['AppointmentDate'])
