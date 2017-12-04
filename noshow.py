@@ -26,7 +26,6 @@ weather = pd.read_csv('wunder-data.txt', header = None)
 #set datetime objects; categorical data; specify factors; correct spelling
 data['AppointmentRegistration'] = data['AppointmentRegistration'].astype('datetime64[ns]')
 data['AppointmentDate'] = data['ApointmentData'].astype('datetime64[ns]')
-data['Gender'] = data['Gender'].astype('category') 
 data['DayOfTheWeek'] = data['DayOfTheWeek'].astype('category')
 data['DayOfTheWeek'] = pd.Categorical(data['DayOfTheWeek'], ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
                     ordered=True)
@@ -85,6 +84,11 @@ data['NoShow'] = data['Status']
 data['NoShow'][data['Status'] == 1] = 0
 data['NoShow'][data['Status'] == 0] = 1
 
+#
+data['Gender'][data['Gender'] == 'F'] = 1
+data['Gender'][data['Gender'] == 'M'] = 0
+data['Gender'] = data['Gender'].astype('int64')
+
 #set bool values greater than 1 to 1 for Handicap and Sms_Reminder
 data['Sms_Reminder'][data['Sms_Reminder']>1] = 1 #changed 799 
 data['Handicap'] [data['Handicap']>1] = 1 #changed 495 
@@ -95,9 +99,12 @@ data.describe()
 #percent no-shows
 data['NoShow'].value_counts()/len(data['NoShow'])
 
-data2 = data.merge(weather, how = 'left', left_on = 'ApptDate', right_on = 0)
-weather
-
+#MERGE DATA
+data['merge']=data['ApptDate'].astype(str)
+data = data.merge(weather, how = 'left', left_on = 'merge', right_on = 0)
+data = data.rename(columns = {1:'Temp',2:'Precip'})
+data.columns
+data2 = data.drop(['merge',0], axis = 1)
 #==============================================================================
 #
 # visualize data
@@ -111,7 +118,7 @@ weather
     #smokes
     #scholarship
     #tuberculosis
-binaries = data[['NoShow','Diabetes','Alcoholism','Hypertension',
+binaries = data[['NoShow','Gender','Diabetes','Alcoholism','Hypertension',
              'Handicap','Smokes','Scholarship','Tuberculosis','Sms_Reminder']]
 
 f, ax = plt.subplots(figsize=(10, 8))
@@ -122,14 +129,21 @@ sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_pa
     #plot proportion of no-shows by appointment date
 bydate = data.groupby('ApptDate')['NoShow'].mean().reset_index() #mean is the proportion of No Shows 
 plt.plot_date(bydate['ApptDate'],bydate['NoShow'])  
+plt.xlabel('Appointment Date')
+plt.ylabel('Proportion No-Show')
+
     #plot proportion of no-shows by registration date
 bydate2 = data.groupby('RegDate')['NoShow'].mean().reset_index()
 plt.plot_date(bydate2['RegDate'],bydate2['NoShow'])
+plt.xlabel('Registration Date')
+plt.ylabel('Proportion No-Show')
 #doesn't seem to have a trend over time
   
     #plot proportion of no-shows by wait time
 bywait = data.groupby('WaitTime')['NoShow'].mean().reset_index() #mean is the proportion of No Shows 
 plt.scatter(bywait['WaitTime'],bywait['NoShow'])  
+plt.xlabel('Wait Times')
+plt.ylabel('Proportion No-Show')
 #longer wait times seems to be associated with higher proportions of NoShows 
 
     #Day of the Week - count
@@ -138,6 +152,8 @@ byDOTW = byDOTW.sort_values('DayOfTheWeek')
 y_pos = np.arange(len(byDOTW['NoShow']))
 plt.bar(y_pos, byDOTW['NoShow'])
 plt.xticks(y_pos, ['Mon','Tues','Wed','Thurs','Fri','Sat','Sun'])
+plt.xlabel('Weekday')
+plt.ylabel('Proportion No-Show')
 #basically no appointments on Sat, Sun, take a look at weekdays
 
     #Day of the Week - Weekday Proportion
@@ -146,12 +162,17 @@ byDOTW = byDOTW.sort_values('DayOfTheWeek')
 y_pos = np.arange(5)
 plt.bar(y_pos, byDOTW['NoShow'][:5])
 plt.xticks(y_pos, ['Mon','Tues','Wed','Thurs','Fri'])
+plt.xlabel('Weekday')
+plt.ylabel('Proportion No-Show')
 
     #Month
 byMonth = data.groupby('ApptMonth')['NoShow'].count().reset_index()
 byMonth = byMonth.sort_values('ApptMonth')
 y_pos = np.arange(len(byMonth['NoShow']))
 plt.bar(y_pos+1, byMonth['NoShow'])
+plt.xlabel('Month')
+plt.ylabel('Proportion No-Show')
+
 
     #Gender
 byGender = data.groupby('Gender')['NoShow','Status'].mean().reset_index()
@@ -163,8 +184,14 @@ plt.ylabel('Proportion No-Show')
 
     #Age
 plt.hist([data['Age'][data['NoShow']==0],data['Age'][data['NoShow']==1]], bins = 35,stacked=True, color = ['b','r'],label=['Show','NoShow'])
+plt.legend()
 plt.xlabel('Age')
 plt.ylabel('Number of Appointments')
+
+    #Temperature
+
+    #Precipitation 
+    
 #==============================================================================
 #
 # create training and development sets 
@@ -198,7 +225,3 @@ metrics.accuracy_score(y_test, predicted)
 
 
 
-
-
-
-min(data['AppointmentDate'])
