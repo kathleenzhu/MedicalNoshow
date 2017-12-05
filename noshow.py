@@ -261,6 +261,17 @@ predicted[predicted >= 0] = 1
 predicted[predicted < 0] = -1
 1-metrics.accuracy_score(y_test, predicted)
 
+misclass = []
+lambdas = list(np.arange(0.0, 10.1, 0.1))
+for lam in lambdas:
+    ridge = linear_model.Ridge(alpha = lam)
+    ridge.fit(X_train,y_train)
+    predicted = ridge.predict(X_test)
+    predicted[predicted >= 0] = 1
+    predicted[predicted < 0] = -1
+    misclass.append(1-metrics.accuracy_score(y_test, predicted))
+
+misclass
 #==============================================================================
 #
 # lasso regression
@@ -296,6 +307,8 @@ logistic = LogisticRegression(fit_intercept = False, C = 2)
 logistic.fit(X_train, y_train)
 logistic.coef_
 
+logistic.predict_proba(X_test)
+
 #predicted values
 predicted = logistic.predict(X_test)
 
@@ -308,48 +321,23 @@ predicted = logistic.predict(X_test)
 # decision trees
 #
 #==============================================================================
-clf_gini = DecisionTreeClassifier(criterion = "gini", random_state = 100,
-                               max_depth=5, min_samples_leaf=2)
-clf_gini.fit(X_train, y_train)
-y_pred = clf_gini.predict(X_test)
-y_pred
-metrics.accuracy_score(y_test,y_pred)*100
-
-
-
 clf_entropy = DecisionTreeClassifier(criterion = "entropy", random_state = 100,
                                      max_depth=5, min_samples_leaf=2)
 clf_entropy.fit(X_train, y_train)
 y_pred = clf_entropy.predict(X_test)
 y_pred
-metrics.accuracy_score(y_test,y_pred)*100
+1-metrics.accuracy_score(y_test,y_pred)*100
 
-
-clf = RandomForestClassifier(n_estimators=100)
+#==============================================================================
+#
+# random forest
+#
+#==============================================================================
+clf = RandomForestClassifier(n_estimators=50)
 clf.fit(X_train, y_train)
 predicted = clf.predict(X_test)
-metrics.accuracy_score(y_test, predicted)
-
-metrics.precision_score(y_test, predicted)
-metrics.recall_score(y_test, predicted)
+1-metrics.accuracy_score(y_test, predicted)
 
 
-
-
-
-
-clf = RandomForestClassifier(n_jobs=2, random_state=01)
-clf.fit(train[features], y)
-
-
-
-
-
-from imblearn.over_sampling import SMOTE
-sm = SMOTE(random_state=101)
-X_res, y_res = sm.fit_sample(X, y)
-Counter(y_res)
-
-
-
+1-0.697612
 
