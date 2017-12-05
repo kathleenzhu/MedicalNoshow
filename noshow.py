@@ -24,7 +24,7 @@ pd.options.mode.chained_assignment = None  # default='warn', so we don't get cha
 
 #read data
 data = pd.read_csv('No-show-Issue-Comma-300k.csv')
-data.columns
+#data.columns
 weather = pd.read_csv('wunder-data.txt', header = None)
 
 #set datetime objects; categorical data; specify factors; correct spelling
@@ -216,7 +216,7 @@ binaries = data[['NoShow','Gender','Diabetes','Alcoholism','Hypertension',
              'Handicap','Smokes','Scholarship','Tuberculosis','Sms_Reminder']]
 for i in binaries:
     data[i][data[i] == 0] = -1
-    
+
 #==============================================================================
 #
 # create training and development sets 
@@ -224,10 +224,15 @@ for i in binaries:
 #==============================================================================
 #predictors: wait time, age, day of the week, month, scholarship, hypertension, smoke
 data.columns
-y, X = dmatrices('NoShow ~ WaitTime + Age + DayOfTheWeek +\
-                  ApptMonth + Scholarship + Hypertension + Precip',
+data.info()
+y, X = dmatrices('NoShow ~ WaitTime + Age + DayOfTheWeek + Sms_Reminder + \
+                  Handicap + Alcoholism + Diabetes + Scholarship + Hypertension + Precip',
                   data, return_type="dataframe")
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+#y, X = dmatrices('NoShow ~ WaitTime + Age + DayOfTheWeek +\
+ #                 ApptMonth + Scholarship + Hypertension + Precip',
+  #                data, return_type="dataframe")
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=101)
 
 
 #==============================================================================
@@ -241,11 +246,11 @@ lsregr.fit(X_train,y_train)
 predicted = lsregr.predict(X_test)
 predicted[predicted >= 0] = 1
 predicted[predicted < 0] = -1
-metrics.accuracy_score(y_test, predicted)
+1-metrics.accuracy_score(y_test, predicted)
 
 #==============================================================================
 #
-# basic model: ridge regression
+# ridge regression
 #
 #==============================================================================
 
@@ -254,18 +259,31 @@ ridge.fit(X_train,y_train)
 predicted = ridge.predict(X_test)
 predicted[predicted >= 0] = 1
 predicted[predicted < 0] = -1
-metrics.accuracy_score(y_test, predicted)
+1-metrics.accuracy_score(y_test, predicted)
+
+#==============================================================================
+#
+# lasso regression
+#
+#==============================================================================
+
+ridge = linear_model.Lasso()
+ridge.fit(X_train,y_train)
+predicted = ridge.predict(X_test)
+predicted[predicted >= 0] = 1
+predicted[predicted < 0] = -1
+1-metrics.accuracy_score(y_test, predicted)
 
 #==============================================================================
 #
 # hinge regression
 #
 #==============================================================================
-hinge = linear_model.SGDClassifier(loss = 'hinge',penalty = 'l2', alpha = 0.01,max_iter=5, tol=None) 
+hinge = linear_model.SGDClassifier(loss = 'hinge',penalty = 'l1', alpha = 0.01,max_iter=5, tol=None) 
 hinge.fit(X_train, y_train)
 hinge.coef_
 predicted = hinge.predict(X_test)
-metrics.accuracy_score(y_test, predicted)
+1-metrics.accuracy_score(y_test, predicted)
 
 #==============================================================================
 #
@@ -282,7 +300,7 @@ logistic.coef_
 predicted = logistic.predict(X_test)
 
 #evaluation, accuracy
-metrics.accuracy_score(y_test, predicted)
+1-metrics.accuracy_score(y_test, predicted)
 
 
 #==============================================================================
@@ -307,17 +325,31 @@ y_pred
 metrics.accuracy_score(y_test,y_pred)*100
 
 
-clf = RandomForestClassifier()
+clf = RandomForestClassifier(n_estimators=100)
 clf.fit(X_train, y_train)
 predicted = clf.predict(X_test)
 metrics.accuracy_score(y_test, predicted)
 
+metrics.precision_score(y_test, predicted)
+metrics.recall_score(y_test, predicted)
 
 
 
 
 
 
-
-clf = RandomForestClassifier(n_jobs=2, random_state=0)
+clf = RandomForestClassifier(n_jobs=2, random_state=01)
 clf.fit(train[features], y)
+
+
+
+
+
+from imblearn.over_sampling import SMOTE
+sm = SMOTE(random_state=101)
+X_res, y_res = sm.fit_sample(X, y)
+Counter(y_res)
+
+
+
+
